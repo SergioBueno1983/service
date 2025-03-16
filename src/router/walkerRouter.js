@@ -297,9 +297,16 @@ router.put(  "/walkers/mercadopago/:walker_id",  authMiddleware,
   async (req, res) => {
     try {
       const reqData = req.body;
+      console.log(reqData);
       const id = req.params.walker_id;
       const walker = await Walker.findByPk(id);
       const tokenCode = reqData.code;
+
+
+      console.log("access token", globalConstants.ACCESS_TOKEN);
+      console.log("client id", globalConstants.CLIENT_ID);
+      console.log("client secret", globalConstants.CLIENT_SECRET);
+      console.log("redirect uri", globalConstants.REDIRECT_URI);
 
       // Obtener la fecha y hora actual
       const fechaHoraActual = new Date();
@@ -343,6 +350,7 @@ router.put(  "/walkers/mercadopago/:walker_id",  authMiddleware,
             status: 200,
             token: result.access_token,
           });
+          console.log("result", result);
         })
         .catch((error) => console.log(error));
     } catch (error) {
