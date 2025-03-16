@@ -187,37 +187,40 @@ router.put("/turns/:turn_id", async (req, res) => {
 });
 
 router.delete("/turns/:turn_id", async (req, res) => {
-  sequelize
-    .transaction(async (t) => {
+  try {
+    await sequelize.transaction(async (t) => {
       const id = req.params.turn_id;
 
-      //traigo el turno
+      // Obtener el turno
       const turn = await Turn.findByPk(id);
+      if (!turn) {
+        throw new Error("Turno no encontrado");
+      }
+
       const walkerId = turn.WalkerId;
 
-      // Si el turno tiene servicios aceptados, no se puede eliminar
+      // Verificar si hay servicios aceptados
       const turnServices = await Servicio.findAll({
         where: { TurnId: id, aceptado: true, finalizado: false },
         transaction: t,
       });
+
       if (turnServices.length > 0) {
-        await t.rollback();
-        return res.status(400).json({
-          ok: false,
-          status: 400,
-          message: "Turno no puede ser eliminado, ya tiene servicios asociados",
-        });
+        throw new Error(
+          "Turno no puede ser eliminado, ya tiene servicios asociados"
+        );
       }
 
-      // traigo todas las solicitudes de servicio del turno a eliminar
+      // Obtener solicitudes de servicio no aceptadas
       const servicios = await Servicio.findAll({
         where: {
           TurnId: id,
           aceptado: false,
         },
+        transaction: t,
       });
 
-      // Eliminar las solicitudes de servicios asociados al turno
+      // Eliminar servicios no aceptados
       if (servicios.length > 0) {
         await Servicio.destroy({
           where: {
@@ -228,73 +231,61 @@ router.delete("/turns/:turn_id", async (req, res) => {
         });
       }
 
-      // Elimina el turno
+      // Eliminar el turno
       const deleteTurn = await Turn.destroy({
-        where: {
-          id: id,
-        },
+        where: { id: id },
         transaction: t,
       });
 
-      // Obtener la fecha y hora actual
+      if (!deleteTurn) {
+        throw new Error("No se encontró el turno");
+      }
+
+      // Notificaciones
       const fechaHoraActual = new Date();
-
-      // Restar 3 horas
       fechaHoraActual.setHours(fechaHoraActual.getHours() - 3);
-
-      // Formatear la fecha a 'yyyy-MM-dd HH:mm'
       const formattedFechaHoraActual = fechaHoraActual
         .toISOString()
-        .slice(0, 16) // 'yyyy-MM-ddTHH:mm'
-        .replace("T", " "); // Cambia 'T' por un espacio
+        .slice(0, 16)
+        .replace("T", " ");
 
-      // Enviar notificaciones
-      if (servicios.length > 0) {
-        for (const servicio of servicios) {
-          const notification = await Notification.create(
-            {
-              titulo: "Servicio cancelado",
-              contenido: `El servicio para la fecha ${servicio.fecha} ha sido cancelado`,
-              userId: servicio.ClientId,
-              fechaHora: formattedFechaHoraActual,
-            },
-            { transaction: t }
-          );
-          const targetSocket = getSocketByUserId(servicio.ClientId);
-          if (targetSocket) {
-            targetSocket[1].emit("notification", notification.toJSON());
-            targetSocket[1].emit("refreshServices");
-          }
-          const targetSocketWalker = getSocketByUserId(walkerId);
-          if (targetSocketWalker) {
-            targetSocketWalker[1].emit("refreshServices");
-          }
+      for (const servicio of servicios) {
+        const notification = await Notification.create(
+          {
+            titulo: "Servicio cancelado",
+            contenido: `El servicio para la fecha ${servicio.fecha} ha sido cancelado`,
+            userId: servicio.ClientId,
+            fechaHora: formattedFechaHoraActual,
+          },
+          { transaction: t }
+        );
+
+        const clientSocket = getSocketByUserId(servicio.ClientId);
+        if (clientSocket) {
+          clientSocket[1].emit("notification", notification.toJSON());
+          clientSocket[1].emit("refreshServices");
+        }
+
+        const walkerSocket = getSocketByUserId(walkerId);
+        if (walkerSocket) {
+          walkerSocket[1].emit("refreshServices");
         }
       }
-
-      if (deleteTurn !== 0) {
-        res.status(200).json({
-          ok: true,
-          status: 200,
-          message: "Turno eliminado exitosamente",
-        });
-      } else {
-        res.status(404).json({
-          ok: false,
-          status: 404,
-          message: "No se encontró el turno",
-        });
-      }
-    })
-    .catch((error) => {
-      t.rollback();
-      res.status(500).json({
-        ok: false,
-        status: 500,
-        message: "Error al eliminar turno: " + error.message,
-      });
-      console.error("Error al eliminar turno:", error);
     });
+
+    // Si todo salió bien, responder con éxito
+    return res.status(200).json({
+      ok: true,
+      status: 200,
+      message: "Turno eliminado exitosamente",
+    });
+  } catch (error) {
+    return res.status(400).json({
+      ok: false,
+      status: 400,
+      message: error.message,
+    });
+  }
 });
 
 module.exports = router;
