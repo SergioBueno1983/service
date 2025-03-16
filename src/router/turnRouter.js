@@ -199,9 +199,20 @@ router.delete("/turns/:turn_id", async (req, res) => {
 
       const walkerId = turn.WalkerId;
 
-      // Verificar si hay servicios aceptados
-      const turnServices = await Servicio.findAll({
-        where: { TurnId: id, aceptado: true, finalizado: false },
+      // Obtener la fecha y hora actual
+      const fechaActual = new Date();
+
+      // Restar 3 horas
+      fechaActual.setHours(fechaActual.getHours() - 3);
+
+      // Formatear la fecha a 'yyyy-MM-dd HH:mm'
+      const formattedFechaActual = fechaActual
+        .toISOString()
+        .slice(0, 10) // 'yyyy-MM-dd'
+
+      // Verificar si hay servicios aceptados para hoy o el futuro
+      const turnServices = await Servicio.findAll({ 
+        where: { TurnId: id, aceptado: true, finalizado: false, fecha: { [Op.gte]: formattedFechaActual }},
         transaction: t,
       });
 
