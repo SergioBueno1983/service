@@ -585,8 +585,8 @@ router.delete("/services/:service_id", async (req, res) => {
 
       const targetSocket = getSocketByUserId(userId);
       if (targetSocket) {
-        targetSocket.emit("notification", notification.toJSON());
-        targetSocket.emit("refreshServices");
+        targetSocket[1].emit("notification", notification.toJSON());
+        targetSocket[1].emit("refreshServices");
       }
     } else {
       await t.rollback(); // Hacer rollback si `userType` es inválido
