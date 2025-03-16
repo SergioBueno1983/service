@@ -532,135 +532,76 @@ router.put("/services/:service_id", async (req, res) => {
     });
 });
 
-// Eliminar un servicio
 router.delete("/services/:service_id", async (req, res) => {
-  sequelize
-    .transaction(async (t) => {
-      const id = req.params.service_id;
+  const t = await sequelize.transaction(); // Inicia la transacción manualmente
 
-      // Obtener la fecha y hora actual
-      const fechaHoraActual = new Date();
+  try {
+    const id = req.params.service_id;
+    const fechaHoraActual = new Date();
+    fechaHoraActual.setHours(fechaHoraActual.getHours() - 3);
+    const formattedFechaHoraActual = fechaHoraActual.toISOString().slice(0, 16).replace("T", " ");
+    const fecha = req.body.fecha;
+    const fechaFormateada = format(fecha, "dd/MM/yyyy");
+    const userType = req.body.execUserType;
+    const userId = req.body.userId;
+    const nombreCliente = req.body.nombreCliente ?? null;
 
-      // Restar 3 horas
-      fechaHoraActual.setHours(fechaHoraActual.getHours() - 3);
-
-      // Formatear la fecha a 'yyyy-MM-dd HH:mm'
-      const formattedFechaHoraActual = fechaHoraActual
-        .toISOString()
-        .slice(0, 16) // 'yyyy-MM-ddTHH:mm'
-        .replace("T", " "); // Cambia 'T' por un espacio
-
-      // Formatear la fecha a 'yyyy-MM-dd HH:mm'
-      const formattedFechaActual = fechaHoraActual.toISOString().slice(0, 10); // 'yyyy-MM-dd'
-
-      // Aca tenemos que diferenciar que tipo de usuario esta eliminando el servicio, para ver a quien le mandamos la notificacion
-      const userType = req.body.execUserType;
-
-      const userId = req.body.userId; // id del usuario que va a recibir la notificacion
-      const fecha = req.body.fecha;
-      const fechaFormateada = format(fecha, "dd/MM/yyyy");
-
-      const nombreCliente = req.body.nombreCliente ?? null;
-
-      // busco una factura asociada al servicio
-      const bill = await Bill.findOne({
-        where: { ServiceId: id },
-        include: {
-          model: Service,
-          paranoid: false,
-        },
-        transaction: t,
-      });
-
-      if (bill) {
-        const clientTargetSocket = getSocketByUserId(bill.Service.ClientId);
-
-        // si existe
-        //elimino la factura
-        await bill.destroy({
-          transaction: t,
-        });
-
-        if (clientTargetSocket) {
-          clientTargetSocket[1].emit("refreshBills");
-        }
-      }
-
-      // Elimina el servicio
-      const deleteService = await Service.destroy({
-        where: { id: id },
-        transaction: t,
-      });
-
-      if (deleteService) {
-        res.status(200).json({
-          ok: true,
-          status: 200,
-          message: "Servicio eliminado exitosamente",
-        });
-      } else {
-        res.status(404).json({
-          ok: false,
-          status: 404,
-          message: "Servicio no encontrado",
-        });
-      }
-
-      let notification;
-
-      if (userType === "walker") {
-        notification = await Notification.create(
-          {
-            titulo: "Servicio cancelado",
-            contenido: `El servicio para la fecha ${fechaFormateada} ha sido cancelado`,
-            userId: userId,
-            fechaHora: formattedFechaHoraActual,
-          },
-          { transaction: t }
-        );
-
-        // Emitir la notificacion mediante socket.io
-        const targetSocket = getSocketByUserId(userId);
-        if (targetSocket) {
-          targetSocket.emit("notification", notification.toJSON());
-          targetSocket.emit("refreshServices");
-        }
-      } else if (userType === "client") {
-        notification = await Notification.create(
-          {
-            titulo: "Servicio cancelado",
-            contenido: `El usuario ${nombreCliente} ha cancelado el servicio para la fecha ${fechaFormateada}`,
-            userId: userId,
-            fechaHora: formattedFechaHoraActual,
-          },
-          { transaction: t }
-        );
-
-        // Emitir la notificacion mediante socket.io
-        const targetSocket = getSocketByUserId(userId);
-        if (targetSocket) {
-          targetSocket.emit("notification", notification.toJSON());
-          targetSocket.emit("refreshServices");
-        }
-      } else {
-        //si no viene lo que espero en walker, hago rollback
-        await t.rollback();
-        res.status(500).json({
-          ok: false,
-          status: 500,
-          message: "Tipo de usuario no valido",
-        });
-      }
-    })
-    .catch((error) => {
-      res.status(500).json({
-        ok: false,
-        status: 500,
-        message: "Error al eliminar servicio",
-        error: error.message,
-      });
-      console.error("Error al eliminar servicio:", error);
+    // Buscar factura asociada
+    const bill = await Bill.findOne({
+      where: { ServiceId: id },
+      include: { model: Service, paranoid: false },
+      transaction: t,
     });
+
+    if (bill) {
+      const clientTargetSocket = getSocketByUserId(bill.Service.ClientId);
+      await bill.destroy({ transaction: t });
+
+      if (clientTargetSocket) {
+        clientTargetSocket[1].emit("refreshBills");
+      }
+    }
+
+    // Eliminar servicio
+    const deleteService = await Service.destroy({ where: { id }, transaction: t });
+
+    if (!deleteService) {
+      await t.rollback(); // Hacer rollback si no se encuentra el servicio
+      return res.status(404).json({ ok: false, status: 404, message: "Servicio no encontrado" });
+    }
+
+    // Crear notificación
+    let notification;
+    if (userType === "walker" || userType === "client") {
+      const contenido =
+        userType === "walker"
+          ? `El servicio para la fecha ${fechaFormateada} ha sido cancelado`
+          : `El usuario ${nombreCliente} ha cancelado el servicio para la fecha ${fechaFormateada}`;
+
+      notification = await Notification.create(
+        { titulo: "Servicio cancelado", contenido, userId, fechaHora: formattedFechaHoraActual },
+        { transaction: t }
+      );
+
+      const targetSocket = getSocketByUserId(userId);
+      if (targetSocket) {
+        targetSocket.emit("notification", notification.toJSON());
+        targetSocket.emit("refreshServices");
+      }
+    } else {
+      await t.rollback(); // Hacer rollback si `userType` es inválido
+      return res.status(400).json({ ok: false, status: 400, message: "Tipo de usuario no válido" });
+    }
+
+    await t.commit(); // Confirmar la transacción
+
+    return res.status(200).json({ ok: true, status: 200, message: "Servicio eliminado exitosamente" });
+
+  } catch (error) {
+    await t.rollback(); // Asegurar rollback en caso de error
+    console.error("Error al eliminar servicio:", error);
+    return res.status(500).json({ ok: false, status: 500, message: "Error al eliminar servicio", error: error.message });
+  }
 });
 
 // Marcar servicio como comenzado
