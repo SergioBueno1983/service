@@ -12,7 +12,7 @@ const router = Router();
 const moment = require("moment-timezone");
 const { format } = require("date-fns");
 const Message = require("../models/Message.js");
-const { getIO, getSocketByUserId } = require("../config/socket.js");
+const { getSocketByUserId } = require("../config/socket.js");
 
 // Obtener todos los servicios de un cliente
 router.get("/services/client/:client_id", async (req, res) => {
@@ -376,18 +376,6 @@ router.post("/services", async (req, res) => {
         read: false,
       });
 
-      const io = getIO(); // Obtén la instancia de io
-
-      // Función auxiliar para obtener el socket de un usuario por userId
-      function getSocketByUserId(userId) {
-        const socketEntry = Array.from(io.sockets.sockets).find(
-          ([, socket]) =>
-            socket.handshake.auth.userId.toString() === userId.toString()
-        );
-
-        return socketEntry ? socketEntry[1] : null; // Devolver solo el socket
-      }
-
       // Emitir el mensaje y la notificacion mediante socket.io al paseador
       const targetSocket = getSocketByUserId(turn.WalkerId);
       if (targetSocket) {
@@ -400,7 +388,7 @@ router.post("/services", async (req, res) => {
           read: newMessage.read,
         });
         targetSocket.emit("notification", notification.toJSON());
-        targetSocket.emit("shServices");
+        targetSocket.emit("refeshServices");
       }
 
       const serviceDataResponse = service.toJSON();
@@ -511,18 +499,6 @@ router.put("/services/:service_id", async (req, res) => {
         { transaction: t }
       );
 
-      const io = getIO(); // Obtén la instancia de io
-
-      // Función auxiliar para obtener el socket de un usuario por userId
-      function getSocketByUserId(userId) {
-        const socketEntry = Array.from(io.sockets.sockets).find(
-          ([, socket]) =>
-            socket.handshake.auth.userId.toString() === userId.toString()
-        );
-
-        return socketEntry ? socketEntry[1] : null; // Devolver solo el socket
-      }
-
       // Emitir el mensaje mediante socket.io al cliente
       const targetSocket = getSocketByUserId(existingService.ClientId);
       if (targetSocket) {
@@ -628,18 +604,6 @@ router.delete("/services/:service_id", async (req, res) => {
           status: 404,
           message: "Servicio no encontrado",
         });
-      }
-
-      const io = getIO(); // Obtén la instancia de io
-
-      // Función auxiliar para obtener el socket de un usuario por userId
-      function getSocketByUserId(userId) {
-        const socketEntry = Array.from(io.sockets.sockets).find(
-          ([, socket]) =>
-            socket.handshake.auth.userId.toString() === userId.toString()
-        );
-
-        return socketEntry ? socketEntry[1] : null; // Devolver solo el socket
       }
 
       let notification;
