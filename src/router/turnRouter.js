@@ -287,6 +287,7 @@ router.delete("/turns/:turn_id", async (req, res) => {
       }
     })
     .catch((error) => {
+      t.rollback();
       res.status(500).json({
         ok: false,
         status: 500,
