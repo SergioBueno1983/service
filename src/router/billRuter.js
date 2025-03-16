@@ -12,7 +12,6 @@ const { format } = require("date-fns");
 const { MercadoPagoConfig, Preference } = require("mercadopago");
 const globalConstants = require("../const/globalConstants.js");
 const { getSocketByUserId } = require("../config/socket.js");
-const { response } = require("../app/app.js");
 
 // Endpoint para crear una preferencia de pago
 router.post("/bills/pay", async (req, res) => {
