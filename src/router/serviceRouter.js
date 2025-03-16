@@ -379,7 +379,7 @@ router.post("/services", async (req, res) => {
       // Emitir el mensaje y la notificacion mediante socket.io al paseador
       const targetSocket = getSocketByUserId(turn.WalkerId);
       if (targetSocket) {
-        targetSocket.emit("receiveMessage", {
+        targetSocket[1].emit("receiveMessage", {
           id: newMessage.id,
           senderId: newMessage.senderId,
           receiverId: newMessage.receiverId,
@@ -387,8 +387,8 @@ router.post("/services", async (req, res) => {
           sent: newMessage.sent,
           read: newMessage.read,
         });
-        targetSocket.emit("notification", notification.toJSON());
-        targetSocket.emit("refeshServices");
+        targetSocket[1].emit("notification", notification.toJSON());
+        targetSocket[1].emit("refeshServices");
       }
 
       const serviceDataResponse = service.toJSON();
@@ -502,7 +502,7 @@ router.put("/services/:service_id", async (req, res) => {
       // Emitir el mensaje mediante socket.io al cliente
       const targetSocket = getSocketByUserId(existingService.ClientId);
       if (targetSocket) {
-        targetSocket.emit("receiveMessage", {
+        targetSocket[1].emit("receiveMessage", {
           id: newMessage.id,
           senderId: newMessage.senderId,
           receiverId: newMessage.receiverId,
@@ -510,9 +510,9 @@ router.put("/services/:service_id", async (req, res) => {
           sent: newMessage.sent,
           read: newMessage.read,
         });
-        targetSocket.emit("notification", notification.toJSON());
-        targetSocket.emit("refreshServices");
-        targetSocket.emit("refreshBills")
+        targetSocket[1].emit("notification", notification.toJSON());
+        targetSocket[1].emit("refreshServices");
+        targetSocket[1].emit("refreshBills")
       }
 
       res.status(200).json({
