@@ -593,13 +593,14 @@ router.delete("/services/:service_id", async (req, res) => {
       });
 
       if (bill) {
+        const clientTargetSocket = getSocketByUserId(bill.Service.ClientId);
+
         // si existe
         //elimino la factura
         await bill.destroy({
           transaction: t,
         });
 
-        const clientTargetSocket = getSocketByUserId(bill.Service.ClientId);
         if (clientTargetSocket) {
           clientTargetSocket[1].emit("refreshBills");
         }
