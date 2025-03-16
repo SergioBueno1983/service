@@ -201,7 +201,7 @@ router.delete("/turns/:turn_id", async (req, res) => {
         transaction: t,
       });
       if (turnServices.length > 0) {
-        await transaction.rollback();
+        await t.rollback();
         return res.status(400).json({
           ok: false,
           status: 400,
