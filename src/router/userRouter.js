@@ -12,6 +12,13 @@ const authMiddleware = require("../middlewares/authMiddleware");
 const defaultImagePath = path.resolve(__dirname, "../../images/no_image.png");
 const ruta = path.resolve(__dirname, "..", "..", "images");
 
+// Verifica si la carpeta existe, y si no, créala
+if (!fs.existsSync(ruta)) {
+  fs.mkdirSync(ruta, { recursive: true });
+  console.log("Carpeta de imágenes creada en:", ruta);
+} else {
+  console.log("Carpeta de imágenes ya existe en:", ruta);
+}
 const images = multer({
   dest: "images/",
   fileFilter: (req, file, cb) => {
