@@ -589,6 +589,10 @@ router.delete("/services/:service_id", async (req, res) => {
       // busco una factura asociada al servicio
       const bill = await Bill.findOne({
         where: { ServiceId: id },
+        include: {
+          model: Service,
+          paranoid: false,
+        },
         transaction: t,
       });
 
