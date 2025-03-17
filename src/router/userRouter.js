@@ -244,60 +244,66 @@ router.post(
   authMiddleware,
   images.single("imagenPaseador"),
   async (req, res) => {
-    const walkerId = req.params.walkerId;
-
-    const walker = await Walker.findOne({
-      where: { id: walkerId },
-      include: User,
-    });
-
-    if (!walker) {
-      return res
-        .status(404)
-        .json({ ok: false, message: "Paseador no encontrado" });
-    }
-
     try {
-      // Obtén la lista actual de fotos
+      const walkerId = req.params.walkerId;
+
+      const walker = await Walker.findOne({
+        where: { id: walkerId },
+        include: User,
+      });
+
+      if (!walker) {
+        return res
+          .status(404)
+          .json({ ok: false, message: "Paseador no encontrado" });
+      }
+
+      // Obtén la lista actual de fotos (se espera que sea un array de objetos con { url: string })
       const currentFotos = walker.fotos || [];
 
-      // Función para generar un nombre de archivo único
-      const generateUniqueFilename = (filename, existingFilenames) => {
-        let newFilename = filename;
-        const [name, extension] = filename.split(".");
+      // Extrae la extensión del archivo original usando path
+      let extension = path.extname(req.file.originalname).toLowerCase();
+      const allowedExtensions = [".png", ".jpg", ".jpeg"];
+      if (!allowedExtensions.includes(extension)) {
+        // Si no es jpg, jpeg o png, se asigna .png por defecto
+        extension = ".png";
+      }
 
-        if (extension !== "png" && extension !== "jpg") {
-          //si la extension no es jpg ni png, le asigno png
-          newFilename = `${name}.png`;
-        } else {
-          // si es jpg o png la dejo como esta
-          newFilename = `${name}.${extension}`;
+      // Se busca el contador máximo de las fotos existentes con formato "p<walkerId>_<numero>"
+      let maxCounter = 0;
+      const regex = new RegExp(`^p${walkerId}_(\\d+)`);
+      currentFotos.forEach((foto) => {
+        const match = foto.url.match(regex);
+        if (match && match[1]) {
+          const counter = parseInt(match[1], 10);
+          if (counter > maxCounter) {
+            maxCounter = counter;
+          }
         }
+      });
+      const newCounter = maxCounter + 1;
+      const newFileName = `p${walkerId}_${newCounter}${extension}`;
 
-        // si el nombre ya existe, lo modifico para que sea unico
-        let counter = 1;
-        while (existingFilenames.includes(newFilename)) {
-          const [name, extension] = filename.split(".");
-          newFilename = `${name}_${counter}.${extension}`;
-          counter++;
-        }
-        return newFilename;
-      };
+      // Define la ruta de destino donde se guardarán las imágenes
+      const destinationDir = path.join(__dirname, "uploads", "walkers");
+      const destinationPath = path.join(destinationDir, newFileName);
 
-      // Genera un nombre de archivo único si ya existe
-      const newFoto = req.file.filename;
-      const uniqueFoto = generateUniqueFilename(newFoto, currentFotos);
+      // Asegúrate de que el directorio destino exista
+      if (!fs.existsSync(destinationDir)) {
+        fs.mkdirSync(destinationDir, { recursive: true });
+      }
 
-      // Agrega la nueva URL a la lista
-      const updatedFotos = [...currentFotos, { url: uniqueFoto }];
+      // Renombra y mueve el archivo de la ubicación temporal a la carpeta destino
+      fs.renameSync(req.file.path, destinationPath);
 
-      // Actualiza el campo 'fotos' del walker
+      // Actualiza la lista de fotos del paseador (se almacena solo el nombre, aunque podrías formar la URL completa)
+      const updatedFotos = [...currentFotos, { url: newFileName }];
       await walker.update({ fotos: updatedFotos });
 
       res.status(200).json({
         ok: true,
         message: "Foto subida con éxito",
-        newImage: { url: uniqueFoto },
+        newImage: { url: newFileName },
       });
     } catch (error) {
       console.error("Error al actualizar imagen de perfil:", error);
@@ -307,6 +313,7 @@ router.post(
     }
   }
 );
+
 
 //solicitud de imagen
 router.get("/image/single/:nameImage", authMiddleware, async (req, res) => {
