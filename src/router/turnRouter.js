@@ -217,7 +217,7 @@ router.delete("/turns/:turn_id", async (req, res) => {
         transaction: t,
       });
 
-      
+
 
       if (turnServices.length > 0) {
         throw new Error(
@@ -294,6 +294,7 @@ router.delete("/turns/:turn_id", async (req, res) => {
       message: "Turno eliminado exitosamente",
     });
   } catch (error) {
+    console.log("error", error.message)
     return res.status(400).json({
       ok: false,
       status: 400,
