@@ -4,6 +4,7 @@ const Notification = require("../models/Notification.js");
 const sequelize = require("../config/db.js");
 const router = require("express").Router();
 const { getSocketByUserId } = require("../config/socket.js");
+const { Op } = require("sequelize");
 
 //Obtener los turnos de un paseador
 router.get("/turns/walker/:walker_id", async (req, res) => {
@@ -215,6 +216,8 @@ router.delete("/turns/:turn_id", async (req, res) => {
         where: { TurnId: id, aceptado: true, finalizado: false, fecha: { [Op.gte]: formattedFechaActual }},
         transaction: t,
       });
+
+      
 
       if (turnServices.length > 0) {
         throw new Error(
