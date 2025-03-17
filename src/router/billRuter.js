@@ -80,7 +80,7 @@ router.post("/bills/pay", async (req, res) => {
     res.json({
       id: result.id, // ID de la preferencia
       publicKey: walker.public_key, // Public key del paseador
-      url: result.body.init_point, // URL de MercadoPago para redirigir al cliente
+      url: result.init_point, // URL de MercadoPago para redirigir al cliente
     });
   } catch (error) {
     console.log(error);
@@ -91,15 +91,15 @@ router.post("/bills/pay", async (req, res) => {
 });
 
 router.get("/success", (req, res) => {
-  res.redirect("http://localhost:5173/success"); // URL del frontend
+  res.redirect(`${globalConstants.EXTERNAL_URI}/success`); // URL del frontend
 });
 
 router.get("/failure", (req, res) => {
-  res.redirect("http://localhost:5173/failure"); // URL del frontend
+  res.redirect(`${globalConstants.EXTERNAL_URI}/failure`); // URL del frontend
 });
 
 router.get("/pending", (req, res) => {
-  res.redirect("http://localhost:5173/pending"); // URL del frontend
+  res.redirect(`${globalConstants.EXTERNAL_URI}/pending`); // URL del frontend
 });
 
 //Obtener los facturas de un cliente
