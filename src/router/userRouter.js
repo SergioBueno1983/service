@@ -7,6 +7,7 @@ const path = require("path");
 const fs = require("fs");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const globalConstants = require("../const/globalConstants");
 const authMiddleware = require("../middlewares/authMiddleware");
 
 const defaultImagePath = path.resolve(__dirname, "../../images/no_image.png");
@@ -22,8 +23,14 @@ if (!fs.existsSync(ruta)) {
 const images = multer({
   dest: "images/",
   fileFilter: (req, file, cb) => {
+    const allowedExtensions = [".png", ".jpg", ".jpeg"];
+    const fileExtension = path.extname(file.originalname).toLowerCase();
+  
+    if (!allowedExtensions.includes(fileExtension)) {
+      return cb(new Error("Formato no permitido. Solo PNG, JPG y JPEG."));
+    }
     cb(null, true);
-  },
+  },  
   storage: multer.diskStorage({
     destination: function (req, file, cb) {
       cb(null, "images/");
