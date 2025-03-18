@@ -285,7 +285,7 @@ router.post(
       const newFileName = `p${walkerId}_${newCounter}${extension}`;
 
       // Define la ruta de destino donde se guardarán las imágenes
-      const destinationDir = path.join(__dirname, "uploads", "walkers");
+      const destinationDir = path.join(__dirname, "..", "..", "images");
       const destinationPath = path.join(destinationDir, newFileName);
 
       // Asegúrate de que el directorio destino exista
