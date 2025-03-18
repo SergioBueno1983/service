@@ -26,6 +26,7 @@
     "mysql2": "^3.10.3",
     "sequelize": "6.37.1",
     "sfs_dogwalking": "file:",
+    "sharp": "^0.33.5",
     "socket.io": "^4.8.0"
   },
   "devDependencies": {
