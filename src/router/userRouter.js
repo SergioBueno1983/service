@@ -278,10 +278,13 @@ router.post(
           const counter = parseInt(match[1], 10);
           if (counter > maxCounter) {
             maxCounter = counter;
+		console.log("mx counter in if", maxCounter)
           }
         }
       });
       const newCounter = maxCounter + 1;
+	console.log("new counter", newCounter)
+	
       const newFileName = `p${walkerId}_${newCounter}${extension}`;
 
       // Define la ruta de destino donde se guardarán las imágenes
