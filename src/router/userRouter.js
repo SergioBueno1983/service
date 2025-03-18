@@ -63,6 +63,182 @@ const images = multer({
 
 const router = require("express").Router();
 
+//agregar o cambiar foto de perfil
+router.post(
+  "/image/single/:nameImage",
+  authMiddleware,
+  images.single("imagenPerfil"),
+  async (req, res) => {
+    const username = req.params.nameImage;
+
+    const user = await User.findOne({ where: { nombre_usuario: username } });
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ ok: false, message: "Usuario no encontrado" });
+    }
+
+    try {
+      // Actualiza el campo 'foto' del usuario con el nombre del archivo subido
+      await user.update({ foto: req.file.filename });
+
+      res.status(200).json({
+        ok: true,
+        message: "Imagen de perfil actualizada exitosamente",
+      });
+    } catch (error) {
+      console.error("Error al actualizar imagen de perfil:", error);
+      res
+        .status(500)
+        .json({ ok: false, message: "Error al actualizar imagen de perfil" });
+    }
+  }
+);
+
+// subir fotos al perfil del paseador
+router.post(
+  "/image/walker/single/:walkerId",
+  authMiddleware,
+  images.single("imagenPaseador"),
+  async (req, res) => {
+    try {
+      const walkerId = req.params.walkerId;
+
+      const walker = await Walker.findOne({
+        where: { id: walkerId },
+        include: User,
+      });
+
+      if (!walker) {
+        return res
+          .status(404)
+          .json({ ok: false, message: "Paseador no encontrado" });
+      }
+
+      // Obtén la lista actual de fotos (se espera que sea un array de objetos con { url: string })
+      const currentFotos = walker.fotos || [];
+
+      // Extrae la extensión del archivo original usando path
+      let extension = path.extname(req.file.originalname).toLowerCase();
+      const allowedExtensions = [".png", ".jpg", ".jpeg"];
+      if (!allowedExtensions.includes(extension)) {
+        // Si no es jpg, jpeg o png, se asigna .png por defecto
+        extension = ".png";
+      }
+
+      // Se busca el contador máximo de las fotos existentes con formato "p<walkerId>_<numero>"
+      let maxCounter = 0;
+      const regex = new RegExp(`^p${walkerId}_(\\d+)`);
+      currentFotos.forEach((foto) => {
+        const match = foto.url.match(regex);
+        if (match && match[1]) {
+          const counter = parseInt(match[1], 10);
+          if (counter > maxCounter) {
+            maxCounter = counter;
+          }
+        }
+      });
+      const newCounter = maxCounter + 1;
+	
+      const newFileName = `p${walkerId}_${newCounter}${extension}`;
+
+      // Define la ruta de destino donde se guardarán las imágenes
+      const destinationDir = path.join(__dirname, "..", "..", "images");
+      const destinationPath = path.join(destinationDir, newFileName);
+
+      // Asegúrate de que el directorio destino exista
+      if (!fs.existsSync(destinationDir)) {
+        fs.mkdirSync(destinationDir, { recursive: true });
+      }
+
+      // Renombra y mueve el archivo de la ubicación temporal a la carpeta destino
+      fs.renameSync(req.file.path, destinationPath);
+
+      // Actualiza la lista de fotos del paseador (se almacena solo el nombre, aunque podrías formar la URL completa)
+      const updatedFotos = [...currentFotos, { url: newFileName }];
+      await walker.update({ fotos: updatedFotos });
+
+      res.status(200).json({
+        ok: true,
+        message: "Foto subida con éxito",
+        newImage: { url: newFileName },
+      });
+    } catch (error) {
+      console.error("Error al actualizar imagen de perfil:", error);
+      res
+        .status(500)
+        .json({ ok: false, message: "Error al actualizar imagen de perfil" });
+    }
+  }
+);
+
+//solicitud de imagen
+router.get("/image/single/:nameImage", authMiddleware, async (req, res) => {
+  const username = req.params.nameImage;
+
+  try {
+    // Busca el usuario en la base de datos por su nombre de usuario
+    const user = await User.findOne({ where: { nombre_usuario: username } });
+
+    if (!user) {
+      // Si no se encuentra el usuario devuelve un error 404
+      return res.status(404).send("Usuario no encontrado");
+    }
+
+    if (!user.foto) {
+      return res.sendFile(defaultImagePath);
+    }
+
+    // Construye la ruta completa de la imagen en el servidor
+    const imagePath = path.join(ruta, user.foto);
+    console.log(imagePath);
+
+    // Envía la imagen como respuesta
+    res.sendFile(imagePath);
+  } catch (error) {
+    console.error("Error al obtener la imagen del usuario:", error);
+    res.status(500).send("Error interno del servidor");
+  }
+});
+
+router.get("/image/walkers/:imageName", authMiddleware, async (req, res) => {
+  const imageName = req.params.imageName;
+  try {
+    // Construye la ruta completa de la imagen en el servidor
+    const imagePath = path.join(ruta, imageName);
+
+    // Envía la imagen como respuesta
+    res.sendFile(imagePath);
+  } catch (error) {
+    console.error("Error al obtener las imágenes de los paseadores:", error);
+    res.status(500).send("Error interno del servidor");
+  }
+});
+
+router.get("/image/walkers", authMiddleware, async (req, res) => {
+  try {
+    const walkers = await Walker.findAll({
+      include: {
+        model: User,
+        attributes: ["nombre_usuario", "foto"],
+      },
+    });
+
+    const walkerImages = walkers.map((walker) => ({
+      nombre_usuario: walker.User.nombre_usuario,
+      foto: walker.User.foto
+        ? `${globalConstants.EXTERNAL_URI}/images/${walker.User.foto}`
+        : null,
+    }));
+
+    res.status(200).json(walkerImages);
+  } catch (error) {
+    console.error("Error al obtener las imágenes de los paseadores:", error);
+    res.status(500).send("Error interno del servidor");
+  }
+});
+
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
@@ -205,183 +381,5 @@ router.put("/users/:user_id", authMiddleware, async (req, res) => {
   }
 });
 
-//agregar o cambiar foto de perfil
-router.post(
-  "/image/single/:nameImage",
-  authMiddleware,
-  images.single("imagenPerfil"),
-  async (req, res) => {
-    const username = req.params.nameImage;
-
-    const user = await User.findOne({ where: { nombre_usuario: username } });
-
-    if (!user) {
-      return res
-        .status(404)
-        .json({ ok: false, message: "Usuario no encontrado" });
-    }
-
-    try {
-      // Actualiza el campo 'foto' del usuario con el nombre del archivo subido
-      await user.update({ foto: req.file.filename });
-
-      res.status(200).json({
-        ok: true,
-        message: "Imagen de perfil actualizada exitosamente",
-      });
-    } catch (error) {
-      console.error("Error al actualizar imagen de perfil:", error);
-      res
-        .status(500)
-        .json({ ok: false, message: "Error al actualizar imagen de perfil" });
-    }
-  }
-);
-
-// subir fotos al perfil del paseador
-router.post(
-  "/image/walker/single/:walkerId",
-  authMiddleware,
-  images.single("imagenPaseador"),
-  async (req, res) => {
-    try {
-      const walkerId = req.params.walkerId;
-
-      const walker = await Walker.findOne({
-        where: { id: walkerId },
-        include: User,
-      });
-
-      if (!walker) {
-        return res
-          .status(404)
-          .json({ ok: false, message: "Paseador no encontrado" });
-      }
-
-      // Obtén la lista actual de fotos (se espera que sea un array de objetos con { url: string })
-      const currentFotos = walker.fotos || [];
-
-      // Extrae la extensión del archivo original usando path
-      let extension = path.extname(req.file.originalname).toLowerCase();
-      const allowedExtensions = [".png", ".jpg", ".jpeg"];
-      if (!allowedExtensions.includes(extension)) {
-        // Si no es jpg, jpeg o png, se asigna .png por defecto
-        extension = ".png";
-      }
-
-      // Se busca el contador máximo de las fotos existentes con formato "p<walkerId>_<numero>"
-      let maxCounter = 0;
-      const regex = new RegExp(`^p${walkerId}_(\\d+)`);
-      currentFotos.forEach((foto) => {
-        const match = foto.url.match(regex);
-        if (match && match[1]) {
-          const counter = parseInt(match[1], 10);
-          if (counter > maxCounter) {
-            maxCounter = counter;
-		console.log("mx counter in if", maxCounter)
-          }
-        }
-      });
-      const newCounter = maxCounter + 1;
-	console.log("new counter", newCounter)
-	
-      const newFileName = `p${walkerId}_${newCounter}${extension}`;
-
-      // Define la ruta de destino donde se guardarán las imágenes
-      const destinationDir = path.join(__dirname, "..", "..", "images");
-      const destinationPath = path.join(destinationDir, newFileName);
-
-      // Asegúrate de que el directorio destino exista
-      if (!fs.existsSync(destinationDir)) {
-        fs.mkdirSync(destinationDir, { recursive: true });
-      }
-
-      // Renombra y mueve el archivo de la ubicación temporal a la carpeta destino
-      fs.renameSync(req.file.path, destinationPath);
-
-      // Actualiza la lista de fotos del paseador (se almacena solo el nombre, aunque podrías formar la URL completa)
-      const updatedFotos = [...currentFotos, { url: newFileName }];
-      await walker.update({ fotos: updatedFotos });
-
-      res.status(200).json({
-        ok: true,
-        message: "Foto subida con éxito",
-        newImage: { url: newFileName },
-      });
-    } catch (error) {
-      console.error("Error al actualizar imagen de perfil:", error);
-      res
-        .status(500)
-        .json({ ok: false, message: "Error al actualizar imagen de perfil" });
-    }
-  }
-);
-
-
-//solicitud de imagen
-router.get("/image/single/:nameImage", authMiddleware, async (req, res) => {
-  const username = req.params.nameImage;
-
-  try {
-    // Busca el usuario en la base de datos por su nombre de usuario
-    const user = await User.findOne({ where: { nombre_usuario: username } });
-
-    if (!user) {
-      // Si no se encuentra el usuario devuelve un error 404
-      return res.status(404).send("Usuario no encontrado");
-    }
-
-    if (!user.foto) {
-      return res.sendFile(defaultImagePath);
-    }
-
-    // Construye la ruta completa de la imagen en el servidor
-    const imagePath = path.join(ruta, user.foto);
-    console.log(imagePath);
-
-    // Envía la imagen como respuesta
-    res.sendFile(imagePath);
-  } catch (error) {
-    console.error("Error al obtener la imagen del usuario:", error);
-    res.status(500).send("Error interno del servidor");
-  }
-});
-
-router.get("/image/walkers/:imageName", authMiddleware, async (req, res) => {
-  const imageName = req.params.imageName;
-  try {
-    // Construye la ruta completa de la imagen en el servidor
-    const imagePath = path.join(ruta, imageName);
-
-    // Envía la imagen como respuesta
-    res.sendFile(imagePath);
-  } catch (error) {
-    console.error("Error al obtener las imágenes de los paseadores:", error);
-    res.status(500).send("Error interno del servidor");
-  }
-});
-
-router.get("/image/walkers", authMiddleware, async (req, res) => {
-  try {
-    const walkers = await Walker.findAll({
-      include: {
-        model: User,
-        attributes: ["nombre_usuario", "foto"],
-      },
-    });
-
-    const walkerImages = walkers.map((walker) => ({
-      nombre_usuario: walker.User.nombre_usuario,
-      foto: walker.User.foto
-        ? `http://localhost:3001/images/${walker.User.foto}`
-        : null,
-    }));
-
-    res.status(200).json(walkerImages);
-  } catch (error) {
-    console.error("Error al obtener las imágenes de los paseadores:", error);
-    res.status(500).send("Error interno del servidor");
-  }
-});
 
 module.exports = router;
