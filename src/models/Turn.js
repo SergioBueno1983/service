@@ -103,7 +103,7 @@ Turn.init(
   {
     sequelize,
     modelName: "Turn",
-    timestamps: true, // necesario para paranoid
+    timestamps: true, 
     paranoid: true, // activa la baja lógica
   }
 );

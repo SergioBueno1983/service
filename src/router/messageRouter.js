@@ -92,7 +92,10 @@ router.get("/contacts/clients/:userId", async (req, res) => {
     // Obtener todos los clientes que solicitaron un servicio en los turnos del walker
     const serviceClients = await Client.findAll({
       include: [
-        { model: User }, // Incluir al usuario asociado con el cliente
+        { 
+          model: User,
+          paranoid: false,
+         }, // Incluir al usuario asociado con el cliente
         {
           model: Service,
           required: true,
@@ -117,7 +120,8 @@ router.get("/contacts/clients/:userId", async (req, res) => {
       where: { id: Array.from(allClientIds) },
       attributes: ["id"],
       include: {
-        model: User, // Incluir al usuario asociado
+        model: User,
+        paranoid: false, // Incluir al usuario asociado
         attributes: ["id", "foto", "nombre_usuario"],
       },
     });
@@ -236,6 +240,7 @@ router.get("/contacts/walkers/:userId", async (req, res) => {
       attributes: ["id"],
       include: {
         model: User, // Incluir al usuario asociado
+        paranoid: false,
         attributes: ["id", "foto", "nombre_usuario"],
       },
     });

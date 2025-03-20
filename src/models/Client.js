@@ -10,7 +10,8 @@ Client.init({
 }, {
   sequelize,
   modelName: 'Client',
-  timestamps: false
+  timestamps: true, 
+  paranoid: true, // activa la baja lógica
 });
 
 Client.User = Client.belongsTo(User, { foreignKey: 'id', targetKey: 'id' });

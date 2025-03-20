@@ -138,6 +138,7 @@ router.get("/review/receiver/:userId", async (req, res) => {
       include: [
         {
           model: User,
+          paranoid: false,
           as: "writer",
         },
       ],

@@ -114,7 +114,10 @@ router.post(
 
       const walker = await Walker.findOne({
         where: { id: walkerId },
-        include: User,
+        include: {
+          model: User,
+          paranoid: false,
+        },
       });
 
       if (!walker) {
@@ -228,6 +231,7 @@ router.get("/image/walkers", authMiddleware, async (req, res) => {
     const walkers = await Walker.findAll({
       include: {
         model: User,
+        paranoid: false,
         attributes: ["nombre_usuario", "foto"],
       },
     });

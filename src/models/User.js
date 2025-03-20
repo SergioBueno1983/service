@@ -120,7 +120,9 @@ User.init({
   }
 }, {
   sequelize,
-  modelName: 'User'
+  modelName: 'User',
+  timestamps: true, 
+  paranoid: true, // activa la baja lógica
 });
 
 module.exports = User;

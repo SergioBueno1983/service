@@ -25,7 +25,8 @@ router.post("/bills/pay", async (req, res) => {
           model: Turn, // Incluir el modelo Turn dentro de Service
           paranoid: false,
           include: {
-            model: Walker, // Incluir el modelo Walker dentro de Turn
+            model: Walker,
+            paranoid:false, // Incluir el modelo Walker dentro de Turn
           },
         },
       },
@@ -118,9 +119,11 @@ router.get("/bills/client/:client_id", async (req, res) => {
         include: {
           model: Walker,
           attributes: ["mercadopago", "efectivo"],
+          paranoid:false,
           include: {
             model: User,
             attributes: ["nombre_usuario"],
+            paranoid: false,
           },
         },
       },
@@ -222,7 +225,7 @@ router.put("/bills/:bill_id", async (req, res) => {
     }
 
     const service = await Service.findByPk(existingBill.ServiceId, {
-      include: { model: Client, include: { model: User } },
+      include: { model: Client, paranoid: false, include: { model: User, paranoid: false } },
       transaction: t,
     });
     const turn = await Turn.findByPk(service.TurnId, { transaction: t });

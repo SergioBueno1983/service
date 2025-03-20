@@ -15,7 +15,10 @@ const router = require("express").Router();
 // Obtener todos los clientes
 router.get("/clients", authMiddleware, async (req, res) => {
   const clients = await Client.findAll({
-    include: User,
+    include: {
+      model: User,
+      paranoid: false,
+    },
   });
   res.status(200).json({
     ok: true,
@@ -31,7 +34,10 @@ router.get("/clients/:client_id", authMiddleware, async (req, res) => {
     where: {
       id: id,
     },
-    include: User,
+    include: {
+      model: User,
+      paranoid: false,
+    },
   });
   res.status(200).json({
     ok: true,
@@ -88,7 +94,10 @@ router.get("/clients/body/:client_id", authMiddleware, async (req, res) => {
     where: {
       id: id,
     },
-    include: User,
+    include: {
+      model: User,
+      paranoid: false,
+    },
   });
   res.status(200).json({
     ok: true,
@@ -104,33 +113,63 @@ router.post("/clients", async (req, res) => {
       const userData = req.body;
       password = bcrypt.hashSync(userData.contraseña, 10);
 
-      // Crea el usuario
-      const user = await User.create(
-        {
-          nombre_usuario: userData.nombre_usuario,
-          contraseña: password,
-          direccion: userData.direccion,
-          fecha_nacimiento: userData.fecha_nacimiento,
-          email: userData.email,
-          telefono: userData.telefono,
-        },
-        { transaction: t }
-      );
-
-      // Crea el cliente asociado al usuario recién creado
-      const client = await Client.create(
-        {
-          id: user.id, // Asigna el ID del usuario recién creado
-        },
-        { transaction: t }
-      );
-
-      res.status(201).json({
-        ok: true,
-        status: 201,
-        message: "Cliente creado exitosamente",
-        body: client.id,
+      const usuarioExiste = await User.findOne({
+        where: { nombre_usuario: userData.nombre_usuario },
+        paranoid: false,
       });
+
+      if (usuarioExiste && usuarioExiste.email === userData.email) {
+        // actualizo el usuario, borro el valor del campo deleted_at y actualizo la contraseña
+        await User.update(
+          {
+            contraseña: password,
+            direccion: userData.direccion,
+            telefono: userData.telefono,
+            deleted_at: null,
+          },
+          {
+            where: { nombre_usuario: userData.nombre_usuario },
+            transaction: t,
+          }
+        );
+        await Client.restore({
+          where: { id: usuarioExiste.id },
+          transaction: t,
+        });
+        res.status(200).json({
+          ok: true,
+          status: 200,
+          message: "Usuario activado exitosamente",
+        });
+      } else {
+        // Crea el usuario
+        const user = await User.create(
+          {
+            nombre_usuario: userData.nombre_usuario,
+            contraseña: password,
+            direccion: userData.direccion,
+            fecha_nacimiento: userData.fecha_nacimiento,
+            email: userData.email,
+            telefono: userData.telefono,
+          },
+          { transaction: t }
+        );
+
+        // Crea el cliente asociado al usuario recién creado
+        const client = await Client.create(
+          {
+            id: user.id,// Asigna el ID del usuario recién creado
+          },
+          { transaction: t }
+        );
+
+        res.status(201).json({
+          ok: true,
+          status: 201,
+          message: "Cliente creado exitosamente",
+          body: client.id,
+        });
+      }
     })
     .catch((error) => {
       // Si algo falla, revierte la transacción

@@ -131,13 +131,18 @@ router.get("/services/walker/:walker_id", async (req, res) => {
           paranoid: false,
           include: {
             model: Walker,
-            include: User,
+            paranoid: false,
+            include: { 
+              model: User,
+              paranoid: false,
+            },
           },
         },
         {
           model: Client,
           include: {
             model: User,
+            paranoid: false,
             attributes: ["nombre_usuario", "calificacion"],
           },
         },
@@ -202,6 +207,7 @@ router.get("/services/walker/future/:walker_id", async (req, res) => {
           model: Client,
           include: {
             model: User,
+            paranoid: false,
             attributes: ["nombre_usuario", "calificacion"],
           },
         },
@@ -251,8 +257,10 @@ router.get("/services/walker/finished/:walker_id", async (req, res) => {
         },
         {
           model: Client,
+          paranoid: false,
           include: {
             model: User,
+            paranoid: false,
             attributes: ["nombre_usuario", "calificacion"],
           },
         },
@@ -549,7 +557,7 @@ router.delete("/services/:service_id", async (req, res) => {
     // Buscar factura asociada
     const bill = await Bill.findOne({
       where: { ServiceId: id },
-      include: { model: Service, paranoid: false },
+      include: { model: Service },
       transaction: t,
     });
 

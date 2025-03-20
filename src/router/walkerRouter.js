@@ -21,6 +21,7 @@ router.get("/walkers", authMiddleware, async (req, res) => {
     include: [
       {
         model: User,
+        paranoid: false,
       },
       {
         model: Turn,
@@ -137,7 +138,9 @@ router.get("/walkers/:walker_id", authMiddleware, async (req, res) => {
     include: [
       {
         model: User,
+        paranoid: false,
         attributes: { exclude: ["contraseña"] },
+
       },
       {
         model: Turn,
@@ -158,6 +161,35 @@ router.post("/walkers", (req, res, next) => {
       const userData = req.body;
       password = bcrypt.hashSync(userData.contraseña, 10);
 
+      const usuarioExiste = await User.findOne({
+        where: { nombre_usuario: userData.nombre_usuario },
+        paranoid: false,
+      });
+
+      if (usuarioExiste && usuarioExiste.email === userData.email) {
+        // actualizo el usuario, borro el valor del campo deleted_at y actualizo la contraseña
+        await User.update(
+          {
+            contraseña: password,
+            direccion: userData.direccion,
+            telefono: userData.telefono,
+            deleted_at: null,
+          },
+          {
+            where: { nombre_usuario: userData.nombre_usuario },
+            transaction: t,
+          }
+        );
+        await Walker.restore({
+          where: { id: usuarioExiste.id },
+          transaction: t,
+        });
+        res.status(200).json({
+          ok: true,
+          status: 200,
+          message: "Usuario activado exitosamente",
+        });
+      } else {
       // Crea el usuario
       const user = await User.create(
         {
@@ -184,6 +216,7 @@ router.post("/walkers", (req, res, next) => {
         status: 201,
         message: "Paseador creado exitosamente",
       });
+      }
     })
     .catch((error) => {
       // Si algo falla, revierte la transacción
@@ -413,6 +446,7 @@ router.get("/walkers/byBill/:billId", authMiddleware, async (req, res) => {
         paranoid: false,
         include: {
           model: Walker, // Incluir el modelo Walker dentro de Turn
+          paranoid: false,
           attributes: ["mercadopago", "efectivo"],
         },
       },

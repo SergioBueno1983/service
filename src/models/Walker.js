@@ -36,7 +36,8 @@ Walker.init({
 }, {
   sequelize,
   modelName: 'Walker',
-  timestamps: false
+  timestamps: true, 
+  paranoid: true, // activa la baja lógica
 });
 
 Walker.belongsTo(User, { foreignKey: 'id', targetKey: 'id'});

@@ -7,7 +7,10 @@ const router = Router();
 router.get("/pets", async (req, res) => {
   try {
     const pets = await Pet.findAll({
-      include: Client
+      include: {
+        model: Client,
+        paranoid: false,
+      }
     });
     res.status(200).json({
       ok: true,
@@ -27,7 +30,10 @@ router.get("/pets/:pet_id", async (req, res) => {
       where: {
         id: id
       },
-      include: Client
+      include: {
+        model: Client,
+        paranoid: false,
+      }
     });
     if (pet) {
       res.status(200).json({
