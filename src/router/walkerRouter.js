@@ -167,16 +167,19 @@ router.post("/walkers", (req, res, next) => {
       });
 
       if (usuarioExiste && usuarioExiste.email === userData.email) {
+        await User.restore({
+          where: { id: usuarioExiste.id },
+          transaction: t,
+        });
         // actualizo el usuario, borro el valor del campo deleted_at y actualizo la contraseña
         await User.update(
           {
             contraseña: password,
             direccion: userData.direccion,
             telefono: userData.telefono,
-            deleted_at: null,
           },
           {
-            where: { nombre_usuario: userData.nombre_usuario },
+            where: { id: usuarioExiste.id },
             transaction: t,
           }
         );
