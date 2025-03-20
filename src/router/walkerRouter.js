@@ -227,7 +227,7 @@ router.post("/walkers", (req, res, next) => {
         ok: false,
         status: 500,
         message: "Error al crear paseador",
-        error: error,
+        error: error.errors[0].message,
       });
       console.error("Error al crear paseador:", error);
     });
