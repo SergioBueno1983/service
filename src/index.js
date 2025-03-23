@@ -73,10 +73,9 @@ async function cleanupIndexes() {
 // Sincronizar base de datos y añadir la funcionalidad de WebSocket
 async function initDatabase() {
   try {
-    await cleanupIndexes();
     await sequelize.sync({ alter: true }); // Opción 'alter' para sincronización no destructiva
-    console.log("¡Tablas sincronizadas!");
-  } catch (error) {
+    await cleanupIndexes();
+} catch (error) {
     console.error("Error durante la inicialización:", error);
   }
 }
