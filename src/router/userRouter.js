@@ -78,19 +78,17 @@ router.post(
   async (req, res) => {
     const username = req.params.nameImage;
 
-    const user = await User.findOne({ where: { nombre_usuario: username } });
+    try{
 
-    if (!user) {
-      return res
-        .status(404)
-        .json({ ok: false, message: "Usuario no encontrado" });
-    }
+      const user = await User.findOne({ where: { nombre_usuario: username } });
 
-    try {
-      // Actualiza el campo 'foto' del usuario con el nombre del archivo subido
-      await user.update({ foto: req.file.filename });
-
-      res.status(200).json({
+      if (!user) {
+        return res
+          .status(404)
+          .json({ ok: false, message: "Usuario no encontrado" });
+      }
+      
+        res.status(200).json({
         ok: true,
         message: "Imagen de perfil actualizada exitosamente",
       });
