@@ -150,6 +150,20 @@ router.get("/bills/:bill_id", async (req, res) => {
     body: bill,
   });
 });
+//Obtener un factura por su id de servicio
+router.get("/bills/:service_id", async (req, res) => {
+  const id = req.params.service_id;
+  const bill = await Bill.findOne({
+    where: {
+      ServiceId: id,
+    },
+  });
+  res.status(200).json({
+    ok: true,
+    status: 200,
+    body: bill,
+  });
+});
 
 //Pagar un factura
 router.put("/bills/:bill_id", async (req, res) => {
